@@ -10,6 +10,7 @@ import datetime
 
 from django.test import TestCase, override_settings
 from django.utils.dateparse import parse_datetime, parse_time
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.renderers import JSONRenderer
 
@@ -18,7 +19,7 @@ from rest_framework_filters import AutoFilter, FilterSet
 from .testapp.filters import CoverFilter, PostFilter, UserFilter
 from .testapp.models import Cover, Note, Person, Post, User
 
-today = datetime.date.today()
+today = timezone.now().replace(microsecond=0)
 
 
 def add_timedelta(time, timedelta):

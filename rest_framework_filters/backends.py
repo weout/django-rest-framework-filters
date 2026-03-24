@@ -1,8 +1,10 @@
 import warnings
 from contextlib import contextmanager
+from importlib.util import find_spec
 
+from django.apps import apps
+from django import forms
 from django.http import QueryDict
-from django_filters import compat
 from django_filters.rest_framework import backends
 from rest_framework.exceptions import ValidationError
 
@@ -15,7 +17,7 @@ class RestFrameworkFilterBackend(backends.DjangoFilterBackend):
 
     @property
     def template(self):
-        if compat.is_crispy():
+        if find_spec('crispy_forms') is not None and apps.is_installed('crispy_forms'):
             return 'rest_framework_filters/crispy_form.html'
         return 'rest_framework_filters/form.html'
 
@@ -51,30 +53,105 @@ class RestFrameworkFilterBackend(backends.DjangoFilterBackend):
             return super().to_html(request, queryset, view)
 
     def get_schema_fields(self, view):
-        # Use the filter_class expanded filters property instead of
-        # base filters so that the nested related filter can be included
-        assert compat.coreapi is not None, 'coreapi must be installed to use `get_schema_fields()`'
-        assert compat.coreschema is not None, 'coreschema must be installed to use `get_schema_fields()`'
+        warnings.warn(
+            '`get_schema_fields()` is deprecated; DRF now uses '
+            '`get_schema_operation_parameters()` for OpenAPI schema generation.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return []
 
-        filter_class = getattr(view, 'filter_class', None)
-        if filter_class is None:
-            try:
-                filter_class = self.get_filter_class(view, view.get_queryset())
-            except Exception:
-                warnings.warn(
-                    "{} is not compatible with schema generation".format(view.__class__)
-                )
-                filter_class = None
+    def get_schema_operation_parameters(self, view):
+        try:
+            queryset = getattr(view, 'queryset', None)
+            if queryset is None:
+                queryset = view.get_queryset()
+            filterset_class = self.get_filterset_class(view, queryset)
+        except Exception:
+            warnings.warn(
+                '{} is not compatible with schema generation'.format(view.__class__)
+            )
+            return []
 
-        return [] if not filter_class else [
-            compat.coreapi.Field(
-                name=field_name,
-                required=field.extra['required'],
-                location='query',
-                schema=self.get_coreschema_field(field)
-                # expanded_filters in place of base_filters
-            ) for field_name, field in filter_class.expanded_filters.items()
+        if not filterset_class:
+            return []
+
+        filters_map = getattr(
+            filterset_class,
+            'expanded_filters',
+            filterset_class.base_filters,
+        )
+        return [
+            self._build_parameter(field_name, field)
+            for field_name, field in filters_map.items()
         ]
+
+    def _build_parameter(self, field_name, field):
+        schema = self._get_schema_for_filter(field)
+        parameter = {
+            'name': field_name,
+            'in': 'query',
+            'required': bool(field.extra.get('required', False)),
+            'schema': schema,
+        }
+
+        label = getattr(field, 'label', None)
+        if label:
+            parameter['description'] = str(label)
+
+        if schema.get('type') == 'array':
+            parameter['style'] = 'form'
+            parameter['explode'] = True
+
+        return parameter
+
+    def _get_schema_for_filter(self, filter_field):
+        form_field = filter_field.field
+        schema = {'type': 'string'}
+        null_boolean_field = getattr(forms, 'NullBooleanField', None)
+
+        if null_boolean_field and isinstance(form_field, null_boolean_field):
+            return {'type': 'boolean'}
+        if isinstance(form_field, forms.BooleanField):
+            return {'type': 'boolean'}
+        if isinstance(form_field, forms.IntegerField):
+            return {'type': 'integer'}
+        if isinstance(form_field, (forms.DecimalField, forms.FloatField)):
+            return {'type': 'number'}
+        if isinstance(form_field, forms.DateTimeField):
+            return {'type': 'string', 'format': 'date-time'}
+        if isinstance(form_field, forms.DateField):
+            return {'type': 'string', 'format': 'date'}
+        if isinstance(form_field, forms.TimeField):
+            return {'type': 'string', 'format': 'time'}
+        if isinstance(form_field, forms.UUIDField):
+            return {'type': 'string', 'format': 'uuid'}
+        if isinstance(
+            form_field,
+            (
+                forms.MultipleChoiceField,
+                forms.TypedMultipleChoiceField,
+                forms.ModelMultipleChoiceField,
+            ),
+        ):
+            choices = self._get_choices(form_field)
+            items = {'type': 'string'}
+            if choices:
+                items['enum'] = choices
+            return {'type': 'array', 'items': items}
+
+        choices = self._get_choices(form_field)
+        if choices:
+            schema['enum'] = choices
+
+        return schema
+
+    def _get_choices(self, form_field):
+        choices = [
+            value for value, _ in getattr(form_field, 'choices', [])
+            if value not in ('', None)
+        ]
+        return choices or None
 
 
 class ComplexFilterBackend(RestFrameworkFilterBackend):

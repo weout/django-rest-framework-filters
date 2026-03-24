@@ -1,5 +1,4 @@
 import sys
-from operator import attrgetter
 from urllib.parse import quote
 
 from django.db.models import QuerySet
@@ -184,9 +183,13 @@ class CombineComplexQuerysetTests(TestCase):
         querysets = [models.User.objects.filter(first_name='Bob')]
         complex_ops = [ComplexOp(None, False, None)]
 
-        self.assertQuerysetEqual(
-            combine_complex_queryset(querysets, complex_ops),
-            ['u1', 'u3'], attrgetter('username'), False,
+        self.assertEqual(
+            list(
+                combine_complex_queryset(querysets, complex_ops)
+                .order_by('username')
+                .values_list('username', flat=True)
+            ),
+            ['u1', 'u3'],
         )
 
     def test_AND(self):
@@ -199,9 +202,13 @@ class CombineComplexQuerysetTests(TestCase):
             ComplexOp(None, False, None),
         ]
 
-        self.assertQuerysetEqual(
-            combine_complex_queryset(querysets, complex_ops),
-            ['u1'], attrgetter('username'), False,
+        self.assertEqual(
+            list(
+                combine_complex_queryset(querysets, complex_ops)
+                .order_by('username')
+                .values_list('username', flat=True)
+            ),
+            ['u1'],
         )
 
     def test_OR(self):
@@ -214,9 +221,13 @@ class CombineComplexQuerysetTests(TestCase):
             ComplexOp(None, False, None),
         ]
 
-        self.assertQuerysetEqual(
-            combine_complex_queryset(querysets, complex_ops),
-            ['u1', 'u3', 'u4'], attrgetter('username'), False,
+        self.assertEqual(
+            list(
+                combine_complex_queryset(querysets, complex_ops)
+                .order_by('username')
+                .values_list('username', flat=True)
+            ),
+            ['u1', 'u3', 'u4'],
         )
 
     def test_negation(self):
@@ -229,7 +240,11 @@ class CombineComplexQuerysetTests(TestCase):
             ComplexOp(None, True, None),
         ]
 
-        self.assertQuerysetEqual(
-            combine_complex_queryset(querysets, complex_ops),
-            ['u1'], attrgetter('username'), False,
+        self.assertEqual(
+            list(
+                combine_complex_queryset(querysets, complex_ops)
+                .order_by('username')
+                .values_list('username', flat=True)
+            ),
+            ['u1'],
         )

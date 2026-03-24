@@ -2,7 +2,6 @@ import copy
 from collections import OrderedDict
 
 from django.db.models.constants import LOOKUP_SEP
-from django.utils import six
 from django_filters import filterset, rest_framework
 from django_filters.utils import get_model_field
 
@@ -117,7 +116,7 @@ class FilterSetMetaclass(filterset.FilterSetMetaclass):
             self._expanded_filters = self.base_filters.copy()
             for filter_name, f in self.related_filters.items():
                 del self._expanded_filters[filter_name]
-                for related_name, related_f in six.iteritems(f.filterset.expanded_filters):
+                for related_name, related_f in f.filterset.expanded_filters.items():
                     related_name = LOOKUP_SEP.join([filter_name, related_name])
                     self._expanded_filters[related_name] = related_f
         return self._expanded_filters

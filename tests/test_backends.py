@@ -128,6 +128,30 @@ class BackendTests(APITestCase):
         with backend.patch_for_rendering(request):
             self.assertIsNone(backend.get_filterset(request, view.queryset, view))
 
+    def test_schema_operation_parameters_include_expanded_related_filters(self):
+        view = views.NoteViewSet(action_map={})
+        backend = view.filter_backends[0]()
+
+        parameters = backend.get_schema_operation_parameters(view)
+        parameter_names = {parameter['name'] for parameter in parameters}
+
+        self.assertIn('title', parameter_names)
+        self.assertIn('author__username', parameter_names)
+        self.assertIn('author__email', parameter_names)
+
+    def test_schema_operation_parameters_map_common_field_types(self):
+        view = views.UserViewSet(action_map={})
+        backend = view.filter_backends[0]()
+
+        parameters = {
+            parameter['name']: parameter
+            for parameter in backend.get_schema_operation_parameters(view)
+        }
+
+        self.assertEqual(parameters['username']['schema']['type'], 'string')
+        self.assertEqual(parameters['is_active']['schema']['type'], 'boolean')
+        self.assertEqual(parameters['last_login__year']['schema']['type'], 'integer')
+
 
 class BackendRenderingTests(RenderMixin, APITestCase):
 
@@ -222,7 +246,7 @@ class BackendRenderingTests(RenderMixin, APITestCase):
         self.assertHTMLEqual(self.render(RelatedViewSet, context), """
         <h2>Field filters</h2>
         <form class="form" action="" method="get">
-            <ul class="errorlist">
+            <ul class="errorlist" id="id_author_error">
                 <li>
                     Select a valid choice. That choice
                     is not one of the available choices.
@@ -230,7 +254,10 @@ class BackendRenderingTests(RenderMixin, APITestCase):
             </ul>
             <p>
                 <label for="id_author">Writer:</label>
-                <select id="id_author" name="author">
+                <select aria-describedby="id_author_error"
+                        aria-invalid="true"
+                        id="id_author"
+                        name="author">
                     <option value="">---------</option>
                 </select>
             </p>
@@ -239,12 +266,14 @@ class BackendRenderingTests(RenderMixin, APITestCase):
             <fieldset>
                 <legend>Writer</legend>
 
-                <ul class="errorlist">
+                <ul class="errorlist" id="id_author__last_login_error">
                     <li>Enter a valid date.</li>
                 </ul>
                 <p>
                     <label for="id_author__last_login">Last login:</label>
                     <input id="id_author__last_login"
+                           aria-describedby="id_author__last_login_error"
+                           aria-invalid="true"
                            name="author__last_login"
                            type="text"
                            value="invalid" />

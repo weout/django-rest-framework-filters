@@ -253,10 +253,10 @@ class RelatedFilterTests(TestCase):
         f3 = PageFilter({'two_pages_back': '3'}, queryset=qs)
         f4 = PageFilter({'two_pages_back': '4'}, queryset=qs)
 
-        self.assertQuerysetEqual(f1.qs, [3], lambda p: p.pk)
-        self.assertQuerysetEqual(f2.qs, [4], lambda p: p.pk)
-        self.assertQuerysetEqual(f3.qs, [], lambda p: p.pk)
-        self.assertQuerysetEqual(f4.qs, [], lambda p: p.pk)
+        self.assertEqual(list(f1.qs.values_list('pk', flat=True)), [3])
+        self.assertEqual(list(f2.qs.values_list('pk', flat=True)), [4])
+        self.assertEqual(list(f3.qs.values_list('pk', flat=True)), [])
+        self.assertEqual(list(f4.qs.values_list('pk', flat=True)), [])
 
     def test_relatedfilter_different_name(self):
         # Test the name filter on the related UserFilter set.

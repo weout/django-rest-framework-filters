@@ -1,5 +1,3 @@
-from operator import attrgetter
-
 from ..testapp.models import Blog, Post
 
 
@@ -102,4 +100,4 @@ class RelationshipData:
         )
 
     def verify(self, qs, expected):
-        self.assertQuerysetEqual(qs, expected, attrgetter('pk'), False)
+        self.assertEqual(list(qs.order_by('pk').values_list('pk', flat=True)), expected)

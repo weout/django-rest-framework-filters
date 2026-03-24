@@ -136,7 +136,7 @@ class AutoFilterTests(TestCase):
 
     @unittest.skipIf(django_filters.VERSION < (2, 2), 'requires django-filter 2.2')
     def test_autofilter_invalid_field(self):
-        msg = "'Meta.fields' contains fields that are not defined on this FilterSet: xyz"
+        msg = "'Meta.fields' must not contain non-model field names: xyz"
         with self.assertRaisesMessage(TypeError, msg):
             class F(FilterSet):
                 pk = filters.AutoFilter(field_name='xyz', lookups=['exact'])
@@ -147,7 +147,7 @@ class AutoFilterTests(TestCase):
 
     @unittest.skipIf(django_filters.VERSION < (2, 2), 'requires django-filter 2.2')
     def test_all_lookups_invalid_field(self):
-        msg = "'Meta.fields' contains fields that are not defined on this FilterSet: xyz"
+        msg = "'Meta.fields' must not contain non-model field names: xyz"
         with self.assertRaisesMessage(TypeError, msg):
             class F(FilterSet):
                 class Meta:

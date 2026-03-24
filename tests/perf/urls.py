@@ -1,5 +1,4 @@
-
-from django.conf.urls import include, url
+from django.urls import include, path
 from rest_framework import routers
 
 from . import views
@@ -10,5 +9,5 @@ router.register(r'drf-notes', views.DRFFNoteViewSet, basename='drf-notes')
 
 
 urlpatterns = [
-    url(r'^', include(router.urls)),
+    path('', include(router.urls)),
 ]
